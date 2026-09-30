@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Student registration{% endblock %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">HSK exam</p>
+  <h1>Pre-register before your visit</h1>
+  <p>Enter your information exactly as it appears on your passport. Staff will verify it in person.</p>
+
+  {% if errors %}
+  <div class="notice error" role="alert">
+    <strong>Check the highlighted fields.</strong>
+    <span>Invalid: {{ errors | join(", ") }}</span>
+  </div>
+  {% endif %}
+
+  <form action="/registrations" method="post" autocomplete="off">
+    <div class="form-grid">
+      <label>First name<input name="first_name" required maxlength="100"></label>
+      <label>Last name<input name="last_name" required maxlength="100"></label>
+      <label>Date of birth<input name="date_of_birth" type="date" required></label>
+      <label>Nationality<input name="nationality" required maxlength="100"></label>
+      <label>Passport number<input name="passport_number" required maxlength="32"></label>
+      <label>Phone number<input name="phone_number" type="tel" required maxlength="24"></label>
+      <label>Parent phone number<input name="parent_phone_number" type="tel" required maxlength="24"></label>
+      <label>HSK level
+        <select name="hsk_level" required>
+          {% for level in hsk_levels %}
+          <option value="{{ level.value }}">{{ level.value[:3] }} {{ level.value[3:] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <p class="privacy-note">Use fake information while this system is in prototype testing.</p>
+    <button type="submit">Submit pre-registration</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Registration status{% endblock %}
+{% block content %}
+<section class="card compact">
+  {% if registration_code %}
+  <p class="eyebrow">Registration received</p>
+  <h1>Keep this code</h1>
+  <p class="registration-code">{{ registration_code }}</p>
+  <p>Bring this code and your physical passport to the institute. Staff will verify your information.</p>
+  {% else %}
+  <p class="eyebrow">Not found</p>
+  <h1>Registration not found</h1>
+  <p>Check the registration code and ask institute staff for help.</p>
+  {% endif %}
+</section>
+{% endblock %}
