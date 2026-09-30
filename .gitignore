@@ -1,0 +1,36 @@
+# Python build and test artifacts
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments and local tooling
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Application data and generated artifacts
+*.db
+*.sqlite
+*.sqlite3
+generated_documents/
+document_templates/*.docx
+!document_templates/.gitkeep
+
+# Secrets, private keys, and local deployment files
+*.pem
+*.key
+secrets/
+instance/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
