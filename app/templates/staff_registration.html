@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Registration details{% endblock %}
+{% block content %}
+<nav class="staff-nav">
+  <a href="/staff">← New search</a>
+  <form action="/staff/logout" method="post"><button class="secondary" type="submit">Sign out</button></form>
+</nav>
+<section class="card">
+  {% if registration %}
+  <p class="eyebrow">Registration {{ registration.registration_code }}</p>
+  <div class="status">{{ registration.status.value }}</div>
+  <h1>{{ registration.first_name }} {{ registration.last_name }}</h1>
+  <dl class="details">
+    <div><dt>Date of birth</dt><dd>{{ registration.date_of_birth.isoformat() }}</dd></div>
+    <div><dt>Nationality</dt><dd>{{ registration.nationality }}</dd></div>
+    <div><dt>Passport number</dt><dd>{{ registration.passport_number }}</dd></div>
+    <div><dt>Phone number</dt><dd>{{ registration.phone_number }}</dd></div>
+    <div><dt>Parent phone</dt><dd>{{ registration.parent_phone_number }}</dd></div>
+    <div><dt>HSK level</dt><dd>{{ registration.hsk_level.value }}</dd></div>
+  </dl>
+  <p class="privacy-note">Compare these details with the student's physical passport. This record is not verified yet.</p>
+  {% else %}
+  <p class="eyebrow">Lookup result</p>
+  <h1>Registration not found</h1>
+  <p>Check the code and try again. No registration details were disclosed.</p>
+  {% endif %}
+</section>
+{% endblock %}

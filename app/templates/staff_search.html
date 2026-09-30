@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Find registration{% endblock %}
+{% block content %}
+<nav class="staff-nav">
+  <strong>HSK registration desk</strong>
+  <form action="/staff/logout" method="post"><button class="secondary" type="submit">Sign out</button></form>
+</nav>
+<section class="card compact">
+  <p class="eyebrow">Staff verification</p>
+  <h1>Find registration</h1>
+  <p>Enter the code shown by the student.</p>
+  <form action="/staff/registrations" method="get" class="search-form">
+    <label>Registration code<input name="code" placeholder="HSK-A7M2Q9" required autocomplete="off"></label>
+    <button type="submit">Find registration</button>
+  </form>
+</section>
+{% endblock %}

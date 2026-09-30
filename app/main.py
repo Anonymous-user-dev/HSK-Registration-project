@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -15,14 +16,28 @@ APP_DIR = Path(__file__).parent
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
-    application = FastAPI(title="HSK Pre-Registration", docs_url=None, redoc_url=None)
-    application.state.settings = settings or Settings.from_env()
-    application.state.engine = create_database_engine(
-        application.state.settings.database_url
+    app_settings = settings or Settings.from_env()
+    engine = create_database_engine(app_settings.database_url)
+
+    @asynccontextmanager
+    async def lifespan(_application: FastAPI):
+        try:
+            yield
+        finally:
+            engine.dispose()
+
+    application = FastAPI(
+        title="HSK Pre-Registration",
+        docs_url=None,
+        redoc_url=None,
+        lifespan=lifespan,
     )
-    application.state.session_factory = create_session_factory(application.state.engine)
+    application.state.settings = app_settings
+    application.state.engine = engine
+    application.state.session_factory = create_session_factory(engine)
     application.state.templates = Jinja2Templates(directory=APP_DIR / "templates")
-    Base.metadata.create_all(application.state.engine)
+    Base.metadata.create_all(engine)
+    engine.dispose()
 
     application.add_middleware(
         SessionMiddleware,

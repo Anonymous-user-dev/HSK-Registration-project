@@ -6,6 +6,10 @@ from sqlalchemy import select
 
 from app.models import StaffUser
 from app.services.auth_service import authenticate_staff
+from app.services.registration_service import (
+    CODE_PATTERN,
+    find_registration_by_code,
+)
 
 router = APIRouter(prefix="/staff")
 
@@ -69,5 +73,42 @@ def logout(request: Request) -> RedirectResponse:
 
 
 @router.get("", response_class=HTMLResponse)
-def staff_home(_staff: CurrentStaff) -> HTMLResponse:
-    return HTMLResponse("<h1>Staff registration search</h1>")
+def staff_home(request: Request, _staff: CurrentStaff) -> HTMLResponse:
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="staff_search.html",
+        context={},
+    )
+
+
+@router.get("/registrations", response_class=HTMLResponse)
+def submit_search(request: Request, code: str, _staff: CurrentStaff) -> Response:
+    normalized = code.strip().upper()
+    if CODE_PATTERN.fullmatch(normalized) is None:
+        return _registration_not_found(request)
+    return RedirectResponse(f"/staff/registrations/{normalized}", status_code=303)
+
+
+@router.get("/registrations/{code}", response_class=HTMLResponse)
+def registration_detail(
+    request: Request, code: str, _staff: CurrentStaff
+) -> HTMLResponse:
+    with request.app.state.session_factory() as db:
+        registration = find_registration_by_code(db, code)
+
+    if registration is None:
+        return _registration_not_found(request)
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="staff_registration.html",
+        context={"registration": registration},
+    )
+
+
+def _registration_not_found(request: Request) -> HTMLResponse:
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="staff_registration.html",
+        context={"registration": None},
+        status_code=404,
+    )
