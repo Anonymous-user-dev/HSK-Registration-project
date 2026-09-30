@@ -1,0 +1,1 @@
+"""HSK pre-registration application."""
