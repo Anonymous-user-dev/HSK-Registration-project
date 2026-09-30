@@ -3,10 +3,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings
 from app.database import create_database_engine, create_session_factory
 from app.models import Base
+from app.routes.staff import router as staff_router
 from app.routes.student import router as student_router
 
 APP_DIR = Path(__file__).parent
@@ -22,10 +24,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.templates = Jinja2Templates(directory=APP_DIR / "templates")
     Base.metadata.create_all(application.state.engine)
 
+    application.add_middleware(
+        SessionMiddleware,
+        secret_key=application.state.settings.session_secret,
+        session_cookie="hsk_staff_session",
+        max_age=8 * 60 * 60,
+        same_site="lax",
+        https_only=application.state.settings.secure_cookies,
+    )
+
     application.mount(
         "/static", StaticFiles(directory=APP_DIR / "static"), name="static"
     )
     application.include_router(student_router)
+    application.include_router(staff_router)
 
     @application.middleware("http")
     async def add_security_headers(request, call_next):

@@ -17,6 +17,11 @@ def test_production_requires_a_session_secret() -> None:
         Settings.from_env({"APP_ENV": "production"})
 
 
+def test_production_rejects_a_short_session_secret() -> None:
+    with pytest.raises(ValueError, match="at least 32 characters"):
+        Settings.from_env({"APP_ENV": "production", "SESSION_SECRET": "short"})
+
+
 def test_production_enables_secure_cookies() -> None:
     settings = Settings.from_env(
         {"APP_ENV": "production", "SESSION_SECRET": "a" * 32}

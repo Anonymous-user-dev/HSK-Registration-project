@@ -21,6 +21,8 @@ class Settings:
 
         if is_production and not session_secret:
             raise ValueError("SESSION_SECRET is required in production")
+        if is_production and len(session_secret) < 32:
+            raise ValueError("SESSION_SECRET must contain at least 32 characters")
         if not session_secret:
             session_secret = "development-only-change-me"  # noqa: S105
 
