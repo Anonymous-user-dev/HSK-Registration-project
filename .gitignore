@@ -11,6 +11,7 @@ htmlcov/
 # Environments and local tooling
 .venv/
 venv/
+.worktrees/
 .env
 .env.*
 !.env.example
