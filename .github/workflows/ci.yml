@@ -33,8 +33,18 @@ jobs:
       - name: Lint
         run: ruff check .
 
+      - name: Verify clean database migration
+        env:
+          DATABASE_URL: sqlite:///./ci_migrations.db
+        run: |
+          alembic upgrade head
+          alembic current
+
       - name: Test
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=85
 
       - name: Audit runtime dependencies
         run: pip-audit -r requirements.txt
+
+      - name: Build package
+        run: python -m build
