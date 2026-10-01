@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "scripts*"]
 
 [tool.setuptools.package-data]
 app = ["templates/*.html", "static/*.css"]

@@ -1,12 +1,23 @@
 import os
 
-from sqlalchemy import select
+from sqlalchemy import Engine, inspect, select, text
 
 from app.config import Settings
 from app.database import create_database_engine, create_session_factory
-from app.models import Base, StaffUser
+from app.models import StaffUser
 from app.security import hash_password
 from app.services.auth_service import normalize_username
+
+REQUIRED_DATABASE_REVISION = "0002_staff_verification"
+
+
+def require_current_database(engine: Engine) -> None:
+    if not inspect(engine).has_table("alembic_version"):
+        raise SystemExit("Database is not migrated; run: alembic upgrade head")
+    with engine.connect() as connection:
+        revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
+    if revision != REQUIRED_DATABASE_REVISION:
+        raise SystemExit("Database is not current; run: alembic upgrade head")
 
 
 def main() -> None:
@@ -19,7 +30,7 @@ def main() -> None:
 
     settings = Settings.from_env()
     engine = create_database_engine(settings.database_url)
-    Base.metadata.create_all(engine)
+    require_current_database(engine)
     factory = create_session_factory(engine)
 
     with factory() as db:
