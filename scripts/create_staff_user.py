@@ -30,21 +30,24 @@ def main() -> None:
 
     settings = Settings.from_env()
     engine = create_database_engine(settings.database_url)
-    require_current_database(engine)
-    factory = create_session_factory(engine)
+    try:
+        require_current_database(engine)
+        factory = create_session_factory(engine)
 
-    with factory() as db:
-        if db.scalar(select(StaffUser.id).where(StaffUser.username == username)):
-            raise SystemExit("Staff username already exists")
-        db.add(
-            StaffUser(
-                username=username,
-                password_hash=hash_password(password),
-                role="REGISTRATION_STAFF",
-                is_active=True,
+        with factory() as db:
+            if db.scalar(select(StaffUser.id).where(StaffUser.username == username)):
+                raise SystemExit("Staff username already exists")
+            db.add(
+                StaffUser(
+                    username=username,
+                    password_hash=hash_password(password),
+                    role="REGISTRATION_STAFF",
+                    is_active=True,
+                )
             )
-        )
-        db.commit()
+            db.commit()
+    finally:
+        engine.dispose()
 
     print(f"Created staff user: {username}")
 

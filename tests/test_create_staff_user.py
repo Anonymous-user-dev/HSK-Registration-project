@@ -1,3 +1,5 @@
+import gc
+import warnings
 from pathlib import Path
 
 import pytest
@@ -48,3 +50,25 @@ def test_staff_bootstrap_creates_user_after_migration(
     assert user is not None
     assert user.username == "registrar"
     assert user.password_hash != "fake-bootstrap-password"
+
+
+def test_staff_bootstrap_closes_database_connections(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "connection-cleanup.db"
+    config = Config("alembic.ini")
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+    command.upgrade(config, "head")
+    configure_staff_environment(monkeypatch, database_path)
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always", ResourceWarning)
+        main()
+        gc.collect()
+
+    unclosed_database_warnings = [
+        warning
+        for warning in captured
+        if "unclosed database" in str(warning.message)
+    ]
+    assert unclosed_database_warnings == []
