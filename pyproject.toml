@@ -9,6 +9,7 @@ description = "HSK pre-registration and staff verification prototype"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+    "alembic==1.20.0",
     "argon2-cffi==25.1.0",
     "fastapi==0.142.2",
     "itsdangerous==2.2.0",

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.models import StaffUser
+from app.models import Base, StaffUser
 from app.security import hash_password
 
 
@@ -97,6 +97,7 @@ def test_production_session_cookie_is_secure(tmp_path: Path) -> None:
             secure_cookies=True,
         )
     )
+    Base.metadata.create_all(app.state.engine)
     seed_staff(app)
 
     with TestClient(app, base_url="https://testserver") as client:

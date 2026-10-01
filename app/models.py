@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from enum import Enum, StrEnum
 
-from sqlalchemy import Date, DateTime, Integer, String
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, text
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -25,6 +25,12 @@ class RegistrationStatus(StrEnum):
     PENDING = "PENDING"
     VERIFIED = "VERIFIED"
     REJECTED = "REJECTED"
+
+
+class AuditAction(StrEnum):
+    REGISTRATION_UPDATED = "REGISTRATION_UPDATED"
+    REGISTRATION_VERIFIED = "REGISTRATION_VERIFIED"
+    REGISTRATION_REJECTED = "REGISTRATION_REJECTED"
 
 
 def enum_values(enum_class: type[Enum]) -> list[str]:
@@ -73,6 +79,9 @@ class Registration(Base):
     )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified_by: Mapped[int | None] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
 
 
 class StaffUser(Base):
@@ -85,6 +94,34 @@ class StaffUser(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(40), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    registration_id: Mapped[int] = mapped_column(
+        ForeignKey("registrations.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    staff_user_id: Mapped[int] = mapped_column(
+        ForeignKey("staff_users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    action: Mapped[AuditAction] = mapped_column(
+        SqlEnum(
+            AuditAction,
+            values_callable=enum_values,
+            native_enum=False,
+            create_constraint=True,
+            name="audit_action",
+        ),
+        nullable=False,
+    )
+    changed_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

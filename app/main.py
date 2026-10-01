@@ -40,7 +40,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.engine = engine
     application.state.session_factory = create_session_factory(engine)
     application.state.templates = Jinja2Templates(directory=APP_DIR / "templates")
-    Base.metadata.create_all(engine)
+    if app_settings.environment != "production":
+        Base.metadata.create_all(engine)
     engine.dispose()
 
     application.add_middleware(
