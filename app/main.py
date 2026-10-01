@@ -1,9 +1,12 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings
@@ -13,6 +16,7 @@ from app.routes.staff import router as staff_router
 from app.routes.student import router as student_router
 
 APP_DIR = Path(__file__).parent
+logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -54,6 +58,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(student_router)
     application.include_router(staff_router)
 
+    @application.exception_handler(SQLAlchemyError)
+    async def handle_database_error(_request, _error) -> JSONResponse:
+        logger.error("Database operation failed while processing request")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Request could not be completed"},
+        )
+
     @application.middleware("http")
     async def add_security_headers(request, call_next):
         response = await call_next(request)
@@ -67,6 +79,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "default-src 'self'; style-src 'self'; form-action 'self'; "
             "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
         )
+        if request.url.path.startswith(("/staff", "/registration")):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+        if app_settings.environment == "production":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
         return response
 
     @application.get("/health")

@@ -68,9 +68,7 @@ def test_staff_lookup_requires_authentication(lookup_app: FastAPI) -> None:
     code = create_fake_registration(lookup_app)
 
     with TestClient(lookup_app) as client:
-        response = client.get(
-            f"/staff/registrations/{code}", follow_redirects=False
-        )
+        response = client.get(f"/staff/registrations/{code}", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/staff/login"
@@ -107,6 +105,8 @@ def test_staff_can_view_every_required_registration_field(
         "HSK3",
     ):
         assert expected in response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
 
 
 def test_staff_lookup_accepts_lowercase_code(
@@ -135,7 +135,8 @@ def test_search_submission_redirects_to_normalized_code(
     authenticated_client: TestClient,
 ) -> None:
     response = authenticated_client.get(
-        "/staff/registrations", params={"code": " hsk-abc234 "},
+        "/staff/registrations",
+        params={"code": " hsk-abc234 "},
         follow_redirects=False,
     )
 

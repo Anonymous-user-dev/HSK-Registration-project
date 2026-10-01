@@ -19,9 +19,12 @@ def _new_registration_code() -> str:
 def create_registration(db: Session, data: RegistrationCreate) -> Registration:
     for _ in range(10):
         code = _new_registration_code()
-        if db.scalar(
-            select(Registration.id).where(Registration.registration_code == code)
-        ) is None:
+        if (
+            db.scalar(
+                select(Registration.id).where(Registration.registration_code == code)
+            )
+            is None
+        ):
             break
     else:
         raise RuntimeError("unable to allocate a unique registration code")

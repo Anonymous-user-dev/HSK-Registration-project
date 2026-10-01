@@ -31,22 +31,16 @@ def registration_form(request: Request) -> HTMLResponse:
 
 
 @router.post("/registrations", response_class=HTMLResponse)
-async def submit_registration(
-    request: Request, db: DatabaseSession
-) -> Response:
+async def submit_registration(request: Request, db: DatabaseSession) -> Response:
     form = await request.form()
     submitted = {
-        field: form.get(field, "")
-        for field in RegistrationCreate.model_fields
+        field: form.get(field, "") for field in RegistrationCreate.model_fields
     }
     try:
         data = RegistrationCreate.model_validate(submitted)
     except ValidationError as error:
         error_fields = sorted(
-            {
-                str(item["loc"][0]).replace("_", " ").title()
-                for item in error.errors()
-            }
+            {str(item["loc"][0]).replace("_", " ").title() for item in error.errors()}
         )
         return _templates(request).TemplateResponse(
             request=request,

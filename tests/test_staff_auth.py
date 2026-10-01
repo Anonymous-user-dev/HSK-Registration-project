@@ -107,6 +107,9 @@ def test_production_session_cookie_is_secure(tmp_path: Path) -> None:
         )
 
     assert "secure" in response.headers["set-cookie"].lower()
+    assert response.headers["strict-transport-security"] == (
+        "max-age=31536000; includeSubDomains"
+    )
 
 
 def test_logout_clears_staff_session(

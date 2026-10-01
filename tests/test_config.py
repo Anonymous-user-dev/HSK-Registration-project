@@ -23,8 +23,6 @@ def test_production_rejects_a_short_session_secret() -> None:
 
 
 def test_production_enables_secure_cookies() -> None:
-    settings = Settings.from_env(
-        {"APP_ENV": "production", "SESSION_SECRET": "a" * 32}
-    )
+    settings = Settings.from_env({"APP_ENV": "production", "SESSION_SECRET": "a" * 32})
 
     assert settings.secure_cookies is True

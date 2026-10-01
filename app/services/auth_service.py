@@ -11,9 +11,7 @@ def normalize_username(username: str) -> str:
     return username.strip().lower()
 
 
-def authenticate_staff(
-    db: Session, username: str, password: str
-) -> StaffUser | None:
+def authenticate_staff(db: Session, username: str, password: str) -> StaffUser | None:
     user = db.scalar(
         select(StaffUser).where(StaffUser.username == normalize_username(username))
     )

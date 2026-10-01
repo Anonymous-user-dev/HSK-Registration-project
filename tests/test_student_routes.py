@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
+from app.models import Registration
 
 
 @pytest.fixture
@@ -106,3 +108,24 @@ def test_public_pages_include_security_headers(client: TestClient) -> None:
         "camera=(), microphone=(), geolocation=()"
     )
     assert "default-src 'self'" in response.headers["content-security-policy"]
+
+
+def test_database_failure_returns_redacted_error(
+    web_app: FastAPI, caplog: pytest.LogCaptureFixture
+) -> None:
+    Registration.__table__.drop(web_app.state.engine)
+    submitted = valid_form(
+        passport_number="FAKE-SENSITIVE-123",
+        phone_number="+992 999 888 777",
+    )
+
+    with (
+        caplog.at_level(logging.ERROR),
+        TestClient(web_app, raise_server_exceptions=False) as client,
+    ):
+        response = client.post("/registrations", data=submitted)
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Request could not be completed"}
+    assert submitted["passport_number"] not in caplog.text
+    assert submitted["phone_number"] not in caplog.text
