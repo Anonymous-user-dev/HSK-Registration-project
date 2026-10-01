@@ -21,6 +21,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+app = ["templates/*.html", "static/*.css"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
