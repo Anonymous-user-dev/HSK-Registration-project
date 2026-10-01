@@ -40,3 +40,7 @@ class RegistrationCreate(BaseModel):
         if not set(value) <= allowed or digit_count < 7:
             raise ValueError("phone number has an invalid format")
         return value
+
+
+class RegistrationUpdate(RegistrationCreate):
+    """Validated fields staff may correct while a registration is pending."""

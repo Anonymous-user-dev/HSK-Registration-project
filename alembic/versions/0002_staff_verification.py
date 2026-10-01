@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column(
             "action",
             sa.Enum(
-                "REGISTRATION_UPDATED",
+                "REGISTRATION_EDITED",
                 "REGISTRATION_VERIFIED",
                 "REGISTRATION_REJECTED",
                 name="audit_action",

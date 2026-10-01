@@ -1,20 +1,16 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
+from app.database import create_database_engine
 from app.models import Base
 
 
 @pytest.fixture
-def db() -> Iterator[Session]:
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def db(tmp_path: Path) -> Iterator[Session]:
+    engine = create_database_engine(f"sqlite:///{tmp_path / 'test.db'}")
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     with factory() as session:
