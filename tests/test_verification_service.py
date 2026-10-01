@@ -4,7 +4,7 @@ import json
 from datetime import date
 
 import pytest
-from sqlalchemy import event, select
+from sqlalchemy import event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,9 @@ from app.services.verification_service import (
     RegistrationConflictError,
     RegistrationNotFoundError,
     RegistrationStateError,
+    reject_registration,
     update_pending_registration,
+    verify_registration,
 )
 
 
@@ -218,5 +220,86 @@ def test_audit_insert_failure_rolls_back_registration_update(db: Session) -> Non
     persisted = db.get(Registration, registration.id)
     assert persisted is not None
     assert persisted.first_name == "Mei"
+    assert persisted.version == 1
+    assert db.scalar(select(AuditLog)) is None
+
+
+def test_verify_registration_records_staff_time_version_and_audit(
+    db: Session,
+) -> None:
+    staff, registration = seed_staff_and_registration(db)
+
+    verified = verify_registration(
+        db, registration.id, staff.id, registration.version
+    )
+
+    assert verified.status is RegistrationStatus.VERIFIED
+    assert verified.verified_by == staff.id
+    assert verified.verified_at is not None
+    assert verified.version == 2
+    audit = db.scalar(select(AuditLog))
+    assert audit is not None
+    assert audit.action is AuditAction.REGISTRATION_VERIFIED
+    assert audit.changed_fields == ["status", "verified_at", "verified_by"]
+
+
+def test_reject_registration_leaves_verification_fields_empty(db: Session) -> None:
+    staff, registration = seed_staff_and_registration(db)
+
+    rejected = reject_registration(
+        db, registration.id, staff.id, registration.version
+    )
+
+    assert rejected.status is RegistrationStatus.REJECTED
+    assert rejected.verified_by is None
+    assert rejected.verified_at is None
+    assert rejected.version == 2
+    audit = db.scalar(select(AuditLog))
+    assert audit is not None
+    assert audit.action is AuditAction.REGISTRATION_REJECTED
+    assert audit.changed_fields == ["status"]
+
+
+def test_stale_transition_is_rejected_without_audit(db: Session) -> None:
+    staff, registration = seed_staff_and_registration(db)
+    registration.version = 2
+    db.commit()
+
+    with pytest.raises(RegistrationConflictError):
+        verify_registration(db, registration.id, staff.id, expected_version=1)
+
+    db.refresh(registration)
+    assert registration.status is RegistrationStatus.PENDING
+    assert db.scalar(select(AuditLog)) is None
+
+
+def test_terminal_registration_cannot_transition_again(db: Session) -> None:
+    staff, registration = seed_staff_and_registration(db)
+    verify_registration(db, registration.id, staff.id, registration.version)
+
+    with pytest.raises(RegistrationStateError):
+        reject_registration(db, registration.id, staff.id, registration.version)
+
+    assert db.scalar(select(func.count(AuditLog.id))) == 1
+
+
+def test_audit_insert_failure_rolls_back_verification(db: Session) -> None:
+    staff, registration = seed_staff_and_registration(db)
+
+    def reject_audit_insert(*_args) -> None:
+        raise RuntimeError("simulated transition audit failure")
+
+    event.listen(AuditLog, "before_insert", reject_audit_insert)
+    try:
+        with pytest.raises(RuntimeError, match="simulated transition audit failure"):
+            verify_registration(db, registration.id, staff.id, registration.version)
+    finally:
+        event.remove(AuditLog, "before_insert", reject_audit_insert)
+
+    persisted = db.get(Registration, registration.id)
+    assert persisted is not None
+    assert persisted.status is RegistrationStatus.PENDING
+    assert persisted.verified_at is None
+    assert persisted.verified_by is None
     assert persisted.version == 1
     assert db.scalar(select(AuditLog)) is None

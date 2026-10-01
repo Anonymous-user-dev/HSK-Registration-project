@@ -1,12 +1,14 @@
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.csrf import get_csrf_token, validate_csrf_token
-from app.models import HSKLevel, RegistrationStatus, StaffUser
+from app.models import AuditLog, HSKLevel, Registration, RegistrationStatus, StaffUser
 from app.schemas import RegistrationUpdate
 from app.services.auth_service import authenticate_staff
 from app.services.registration_service import (
@@ -17,7 +19,9 @@ from app.services.verification_service import (
     RegistrationConflictError,
     RegistrationNotFoundError,
     RegistrationStateError,
+    reject_registration,
     update_pending_registration,
+    verify_registration,
 )
 
 router = APIRouter(prefix="/staff")
@@ -118,6 +122,18 @@ def registration_detail(
 ) -> HTMLResponse:
     with request.app.state.session_factory() as db:
         registration = find_registration_by_code(db, code)
+        audit_details = None
+        if (
+            registration is not None
+            and registration.status is not RegistrationStatus.PENDING
+        ):
+            audit_details = db.execute(
+                select(AuditLog, StaffUser.username)
+                .join(StaffUser, StaffUser.id == AuditLog.staff_user_id)
+                .where(AuditLog.registration_id == registration.id)
+                .order_by(AuditLog.id.desc())
+                .limit(1)
+            ).one_or_none()
 
     if registration is None:
         return _registration_not_found(request)
@@ -127,6 +143,8 @@ def registration_detail(
         context={
             "registration": registration,
             "csrf_token": get_csrf_token(request),
+            "audit_log": audit_details[0] if audit_details else None,
+            "audit_staff_username": audit_details[1] if audit_details else None,
         },
     )
 
@@ -185,6 +203,58 @@ async def registration_edit(
         except (RegistrationConflictError, RegistrationStateError):
             return _edit_conflict(
                 request, "Reload the registration before making another correction"
+            )
+
+    normalized_code = code.strip().upper()
+    return RedirectResponse(
+        f"/staff/registrations/{normalized_code}", status_code=303
+    )
+
+
+@router.post("/registrations/{code}/verify", response_class=HTMLResponse)
+async def registration_verify(
+    request: Request, code: str, staff: RegistrationStaff
+) -> Response:
+    return await _transition_response(
+        request, code, staff, transition=verify_registration
+    )
+
+
+@router.post("/registrations/{code}/reject", response_class=HTMLResponse)
+async def registration_reject(
+    request: Request, code: str, staff: RegistrationStaff
+) -> Response:
+    return await _transition_response(
+        request, code, staff, transition=reject_registration
+    )
+
+
+async def _transition_response(
+    request: Request,
+    code: str,
+    staff: StaffUser,
+    *,
+    transition: Callable[[Session, int, int, int], Registration],
+) -> Response:
+    form = await request.form()
+    validate_csrf_token(request, str(form.get("csrf_token", "")))
+
+    with request.app.state.session_factory() as db:
+        registration = find_registration_by_code(db, code)
+        if registration is None:
+            return _registration_not_found(request)
+        try:
+            expected_version = int(str(form.get("version", "")))
+        except ValueError:
+            return _edit_conflict(request, "Reload the registration before continuing")
+
+        try:
+            transition(db, registration.id, staff.id, expected_version)
+        except RegistrationNotFoundError:
+            return _registration_not_found(request)
+        except (RegistrationConflictError, RegistrationStateError):
+            return _edit_conflict(
+                request, "Reload the registration before continuing"
             )
 
     normalized_code = code.strip().upper()

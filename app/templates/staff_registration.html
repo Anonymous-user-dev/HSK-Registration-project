@@ -24,6 +24,23 @@
   <p class="privacy-note">Compare these details with the student's physical passport. This record is not verified yet.</p>
   {% if registration.status.value == "PENDING" %}
   <p><a class="button" href="/staff/registrations/{{ registration.registration_code }}/edit">Correct registration</a></p>
+  <div class="actions">
+    <form action="/staff/registrations/{{ registration.registration_code }}/verify" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="version" value="{{ registration.version }}">
+      <button type="submit">Verify registration</button>
+    </form>
+    <form action="/staff/registrations/{{ registration.registration_code }}/reject" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="version" value="{{ registration.version }}">
+      <button class="secondary" type="submit">Reject registration</button>
+    </form>
+  </div>
+  {% elif audit_log %}
+  <p class="privacy-note">
+    {{ audit_log.action.value }} by {{ audit_staff_username }}
+    on {{ audit_log.created_at.isoformat() }}.
+  </p>
   {% endif %}
   {% else %}
   <p class="eyebrow">Lookup result</p>
