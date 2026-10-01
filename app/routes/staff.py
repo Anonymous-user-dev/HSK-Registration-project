@@ -2,14 +2,22 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.csrf import get_csrf_token, validate_csrf_token
-from app.models import StaffUser
+from app.models import HSKLevel, RegistrationStatus, StaffUser
+from app.schemas import RegistrationUpdate
 from app.services.auth_service import authenticate_staff
 from app.services.registration_service import (
     CODE_PATTERN,
     find_registration_by_code,
+)
+from app.services.verification_service import (
+    RegistrationConflictError,
+    RegistrationNotFoundError,
+    RegistrationStateError,
+    update_pending_registration,
 )
 
 router = APIRouter(prefix="/staff")
@@ -120,6 +128,104 @@ def registration_detail(
             "registration": registration,
             "csrf_token": get_csrf_token(request),
         },
+    )
+
+
+@router.get("/registrations/{code}/edit", response_class=HTMLResponse)
+def registration_edit_form(
+    request: Request, code: str, _staff: RegistrationStaff
+) -> HTMLResponse:
+    with request.app.state.session_factory() as db:
+        registration = find_registration_by_code(db, code)
+
+    if registration is None:
+        return _registration_not_found(request)
+    if registration.status is not RegistrationStatus.PENDING:
+        return _edit_conflict(request, "Registration cannot be edited")
+    return _registration_edit_response(request, registration)
+
+
+@router.post("/registrations/{code}/edit", response_class=HTMLResponse)
+async def registration_edit(
+    request: Request, code: str, staff: RegistrationStaff
+) -> Response:
+    form = await request.form()
+    validate_csrf_token(request, str(form.get("csrf_token", "")))
+
+    with request.app.state.session_factory() as db:
+        registration = find_registration_by_code(db, code)
+        if registration is None:
+            return _registration_not_found(request)
+        if registration.status is not RegistrationStatus.PENDING:
+            return _edit_conflict(request, "Registration cannot be edited")
+
+        try:
+            expected_version = int(str(form.get("version", "")))
+            data = RegistrationUpdate.model_validate(
+                {
+                    field: form.get(field, "")
+                    for field in RegistrationUpdate.model_fields
+                }
+            )
+        except (TypeError, ValueError, ValidationError):
+            return _registration_edit_response(
+                request, registration, validation_error=True, status_code=422
+            )
+
+        try:
+            update_pending_registration(
+                db,
+                registration.id,
+                staff.id,
+                expected_version,
+                data,
+            )
+        except RegistrationNotFoundError:
+            return _registration_not_found(request)
+        except (RegistrationConflictError, RegistrationStateError):
+            return _edit_conflict(
+                request, "Reload the registration before making another correction"
+            )
+
+    normalized_code = code.strip().upper()
+    return RedirectResponse(
+        f"/staff/registrations/{normalized_code}", status_code=303
+    )
+
+
+def _registration_edit_response(
+    request: Request,
+    registration,
+    *,
+    validation_error: bool = False,
+    status_code: int = 200,
+) -> HTMLResponse:
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="staff_registration_edit.html",
+        context={
+            "registration": registration,
+            "hsk_levels": HSKLevel,
+            "csrf_token": get_csrf_token(request),
+            "validation_error": validation_error,
+            "conflict_message": None,
+        },
+        status_code=status_code,
+    )
+
+
+def _edit_conflict(request: Request, message: str) -> HTMLResponse:
+    return request.app.state.templates.TemplateResponse(
+        request=request,
+        name="staff_registration_edit.html",
+        context={
+            "registration": None,
+            "hsk_levels": HSKLevel,
+            "csrf_token": get_csrf_token(request),
+            "validation_error": False,
+            "conflict_message": message,
+        },
+        status_code=409,
     )
 
 

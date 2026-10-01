@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Correct registration{% endblock %}
+{% block content %}
+<nav class="staff-nav">
+  <a href="/staff">← Registration search</a>
+  <form action="/staff/logout" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="secondary" type="submit">Sign out</button>
+  </form>
+</nav>
+<section class="card">
+  {% if conflict_message %}
+  <p class="eyebrow">Update conflict</p>
+  <h1>{{ conflict_message }}</h1>
+  <p>Reload the registration and compare it with the physical document again.</p>
+  {% else %}
+  <p class="eyebrow">Registration {{ registration.registration_code }}</p>
+  <h1>Correct registration</h1>
+  <p>Only save changes confirmed against the student's physical document.</p>
+  {% if validation_error %}
+  <div class="notice error" role="alert">Check the highlighted registration details and try again.</div>
+  {% endif %}
+  <form action="/staff/registrations/{{ registration.registration_code }}/edit" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="version" value="{{ registration.version }}">
+    <label>First name<input name="first_name" value="{{ registration.first_name }}" required maxlength="100"></label>
+    <label>Last name<input name="last_name" value="{{ registration.last_name }}" required maxlength="100"></label>
+    <label>Date of birth<input name="date_of_birth" type="date" value="{{ registration.date_of_birth.isoformat() }}" required></label>
+    <label>Nationality<input name="nationality" value="{{ registration.nationality }}" required maxlength="100"></label>
+    <label>Passport number<input name="passport_number" value="{{ registration.passport_number }}" required maxlength="32" autocomplete="off"></label>
+    <label>Phone number<input name="phone_number" value="{{ registration.phone_number }}" required maxlength="24"></label>
+    <label>Parent phone number<input name="parent_phone_number" value="{{ registration.parent_phone_number }}" required maxlength="24"></label>
+    <label>HSK level
+      <select name="hsk_level" required>
+        {% for level in hsk_levels %}
+        <option value="{{ level.value }}"{% if registration.hsk_level == level %} selected{% endif %}>{{ level.value }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Save corrections</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

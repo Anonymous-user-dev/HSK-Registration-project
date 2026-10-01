@@ -22,6 +22,9 @@
     <div><dt>HSK level</dt><dd>{{ registration.hsk_level.value }}</dd></div>
   </dl>
   <p class="privacy-note">Compare these details with the student's physical passport. This record is not verified yet.</p>
+  {% if registration.status.value == "PENDING" %}
+  <p><a class="button" href="/staff/registrations/{{ registration.registration_code }}/edit">Correct registration</a></p>
+  {% endif %}
   {% else %}
   <p class="eyebrow">Lookup result</p>
   <h1>Registration not found</h1>
