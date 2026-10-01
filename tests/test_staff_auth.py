@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -9,6 +10,23 @@ from app.config import Settings
 from app.main import create_app
 from app.models import Base, StaffUser
 from app.security import hash_password
+
+CSRF_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
+
+
+def csrf_token(client: TestClient, path: str = "/staff/login") -> str:
+    response = client.get(path)
+    match = CSRF_PATTERN.search(response.text)
+    assert match is not None
+    return match.group(1)
+
+
+def login_data(client: TestClient, username: str, password: str) -> dict[str, str]:
+    return {
+        "username": username,
+        "password": password,
+        "csrf_token": csrf_token(client),
+    }
 
 
 @pytest.fixture
@@ -57,10 +75,10 @@ def test_login_failure_is_identical_for_unknown_user_and_wrong_password(
     seed_staff(staff_app)
 
     unknown = staff_client.post(
-        "/staff/login", data={"username": "missing", "password": "wrong"}
+        "/staff/login", data=login_data(staff_client, "missing", "wrong")
     )
     wrong = staff_client.post(
-        "/staff/login", data={"username": "registrar", "password": "wrong"}
+        "/staff/login", data=login_data(staff_client, "registrar", "wrong")
     )
 
     assert unknown.status_code == wrong.status_code == 401
@@ -75,7 +93,7 @@ def test_valid_login_sets_protected_session_cookie(
 
     response = staff_client.post(
         "/staff/login",
-        data={"username": "registrar", "password": "correct horse battery"},
+        data=login_data(staff_client, "registrar", "correct horse battery"),
         follow_redirects=False,
     )
 
@@ -103,7 +121,7 @@ def test_production_session_cookie_is_secure(tmp_path: Path) -> None:
     with TestClient(app, base_url="https://testserver") as client:
         response = client.post(
             "/staff/login",
-            data={"username": "registrar", "password": "correct horse battery"},
+            data=login_data(client, "registrar", "correct horse battery"),
             follow_redirects=False,
         )
 
@@ -119,10 +137,14 @@ def test_logout_clears_staff_session(
     seed_staff(staff_app)
     staff_client.post(
         "/staff/login",
-        data={"username": "registrar", "password": "correct horse battery"},
+        data=login_data(staff_client, "registrar", "correct horse battery"),
     )
 
-    response = staff_client.post("/staff/logout", follow_redirects=False)
+    response = staff_client.post(
+        "/staff/logout",
+        data={"csrf_token": csrf_token(staff_client, "/staff")},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     assert response.headers["location"] == "/staff/login"

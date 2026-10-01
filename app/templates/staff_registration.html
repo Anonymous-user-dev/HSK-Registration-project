@@ -3,7 +3,10 @@
 {% block content %}
 <nav class="staff-nav">
   <a href="/staff">← New search</a>
-  <form action="/staff/logout" method="post"><button class="secondary" type="submit">Sign out</button></form>
+  <form action="/staff/logout" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="secondary" type="submit">Sign out</button>
+  </form>
 </nav>
 <section class="card">
   {% if registration %}

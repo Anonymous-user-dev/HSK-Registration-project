@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from app.models import StaffUser
 from app.schemas import RegistrationCreate
 from app.security import hash_password
 from app.services.registration_service import create_registration
+
+CSRF_PATTERN = re.compile(r'name="csrf_token" value="([^"]+)"')
 
 
 @pytest.fixture
@@ -39,9 +42,16 @@ def lookup_app(tmp_path: Path) -> FastAPI:
 @pytest.fixture
 def authenticated_client(lookup_app: FastAPI) -> Iterator[TestClient]:
     with TestClient(lookup_app) as client:
+        login_page = client.get("/staff/login")
+        match = CSRF_PATTERN.search(login_page.text)
+        assert match is not None
         response = client.post(
             "/staff/login",
-            data={"username": "registrar", "password": "correct horse battery"},
+            data={
+                "username": "registrar",
+                "password": "correct horse battery",
+                "csrf_token": match.group(1),
+            },
         )
         assert response.status_code == 200
         yield client
