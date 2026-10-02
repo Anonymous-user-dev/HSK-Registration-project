@@ -3,6 +3,13 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
+
+DEFAULT_DOCUMENT_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent
+    / "document_templates"
+    / "hsk_registration_template.docx"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,6 +18,7 @@ class Settings:
     database_url: str
     session_secret: str
     secure_cookies: bool
+    document_template_path: Path = DEFAULT_DOCUMENT_TEMPLATE_PATH
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> Settings:
@@ -33,4 +41,11 @@ class Settings:
             ).strip(),
             session_secret=session_secret,
             secure_cookies=is_production,
+            document_template_path=Path(
+                values.get(
+                    "DOCUMENT_TEMPLATE_PATH", str(DEFAULT_DOCUMENT_TEMPLATE_PATH)
+                )
+            )
+            .expanduser()
+            .resolve(),
         )

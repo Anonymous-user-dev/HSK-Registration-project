@@ -24,8 +24,10 @@ venv/
 *.sqlite
 *.sqlite3
 generated_documents/
+*.docx
 document_templates/*.docx
 !document_templates/.gitkeep
+!app/document_templates/hsk_registration_template.docx
 
 # Secrets, private keys, and local deployment files
 *.pem
