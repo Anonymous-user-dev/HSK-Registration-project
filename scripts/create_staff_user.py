@@ -8,7 +8,7 @@ from app.models import StaffUser
 from app.security import hash_password
 from app.services.auth_service import normalize_username
 
-REQUIRED_DATABASE_REVISION = "0002_staff_verification"
+REQUIRED_DATABASE_REVISION = "0003_document_generation"
 
 
 def require_current_database(engine: Engine) -> None:
