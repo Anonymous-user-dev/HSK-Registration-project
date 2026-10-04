@@ -164,6 +164,10 @@ button {
   font-weight: 700;
 }
 
+.document-action {
+  margin-top: 22px;
+}
+
 @media (max-width: 640px) {
   .page-shell {
     padding: 20px 12px;

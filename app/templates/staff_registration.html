@@ -21,8 +21,8 @@
     <div><dt>Parent phone</dt><dd>{{ registration.parent_phone_number }}</dd></div>
     <div><dt>HSK level</dt><dd>{{ registration.hsk_level.value }}</dd></div>
   </dl>
-  <p class="privacy-note">Compare these details with the student's physical passport. This record is not verified yet.</p>
   {% if registration.status.value == "PENDING" %}
+  <p class="privacy-note">Compare these details with the student's physical passport. This record is not verified yet.</p>
   <p><a class="button" href="/staff/registrations/{{ registration.registration_code }}/edit">Correct registration</a></p>
   <div class="actions">
     <form action="/staff/registrations/{{ registration.registration_code }}/verify" method="post">
@@ -41,6 +41,12 @@
     {{ audit_log.action.value }} by {{ audit_staff_username }}
     on {{ audit_log.created_at.isoformat() }}.
   </p>
+  {% endif %}
+  {% if registration.status.value == "VERIFIED" %}
+  <form class="document-action" action="/staff/registrations/{{ registration.registration_code }}/document" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit">Generate Word document</button>
+  </form>
   {% endif %}
   {% else %}
   <p class="eyebrow">Lookup result</p>

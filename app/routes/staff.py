@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from typing import Annotated
 
@@ -8,9 +9,20 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.csrf import get_csrf_token, validate_csrf_token
-from app.models import AuditLog, HSKLevel, Registration, RegistrationStatus, StaffUser
+from app.models import (
+    AuditAction,
+    AuditLog,
+    HSKLevel,
+    Registration,
+    RegistrationStatus,
+    StaffUser,
+)
 from app.schemas import RegistrationUpdate
 from app.services.auth_service import authenticate_staff
+from app.services.document_service import (
+    DocumentTemplateError,
+    generate_registration_document,
+)
 from app.services.registration_service import (
     CODE_PATTERN,
     find_registration_by_code,
@@ -25,6 +37,7 @@ from app.services.verification_service import (
 )
 
 router = APIRouter(prefix="/staff")
+logger = logging.getLogger(__name__)
 
 
 def require_staff(request: Request) -> StaffUser:
@@ -226,6 +239,65 @@ async def registration_reject(
 ) -> Response:
     return await _transition_response(
         request, code, staff, transition=reject_registration
+    )
+
+
+@router.post("/registrations/{code}/document")
+async def registration_document(
+    request: Request, code: str, staff: RegistrationStaff
+) -> Response:
+    form = await request.form()
+    validate_csrf_token(request, str(form.get("csrf_token", "")))
+
+    with request.app.state.session_factory() as db:
+        registration = find_registration_by_code(db, code)
+        if registration is None:
+            return _registration_not_found(request)
+        if registration.status is not RegistrationStatus.VERIFIED:
+            return HTMLResponse("Document is not available", status_code=409)
+        verified_by_username = db.scalar(
+            select(StaffUser.username).where(
+                StaffUser.id == registration.verified_by
+            )
+        )
+        if verified_by_username is None:
+            logger.error("Registration document verifier could not be resolved")
+            return HTMLResponse("Document is temporarily unavailable", status_code=503)
+
+        try:
+            content = generate_registration_document(
+                registration,
+                verified_by_username,
+                request.app.state.settings.document_template_path,
+            )
+        except DocumentTemplateError:
+            logger.error("Registration document template could not be processed")
+            return HTMLResponse("Document is temporarily unavailable", status_code=503)
+        db.add(
+            AuditLog(
+                registration_id=registration.id,
+                staff_user_id=staff.id,
+                action=AuditAction.DOCUMENT_GENERATED,
+                changed_fields=[],
+            )
+        )
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+    normalized_code = code.strip().upper()
+    return Response(
+        content=content,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="hsk_registration_{normalized_code}.docx"'
+            )
+        },
     )
 
 
